@@ -8,7 +8,7 @@ export default function HomePage({ user }) {
       <Button
         variant="contained"
         onClick={() => {
-          router.push("/new");
+          router.push("/setup");
         }}
       >
         Create
