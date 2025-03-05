@@ -1,17 +1,17 @@
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import { Button } from "@mui/material";
+import { useRouter } from "next/navigation";
 
 export default function HomePage({ user }) {
+  const router = useRouter();
   return (
     <>
-      <p>You are logged in as {user.displayName}</p>
       <Button
+        variant="contained"
         onClick={() => {
-          signOut(auth);
+          router.push("/new");
         }}
       >
-        Sign out
+        Create
       </Button>
     </>
   );
