@@ -1,3 +1,3 @@
 export default function Create() {
-  return <p>test</p>;
+  return <p>this is the canvas page</p>;
 }
