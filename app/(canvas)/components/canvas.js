@@ -140,7 +140,7 @@ const resizedCoordinates = (x, y, position, coordinates) => {
 //tool - stores whihc tool is currently selected - line, rectangle
 //selectedElement - used to store the currently selected element for moving or resizing
 
-const useHistory = (initialState) => {
+const useHistory = (initialState, setRawDrawingData) => {
   const [index, setIndex] = useState(0);
   const [history, setHistory] = useState([initialState]);
   const setState = (action, overwrite = false) => {
@@ -159,16 +159,18 @@ const useHistory = (initialState) => {
 
   const undo = () => {
     index > 0 && setIndex((prevState) => prevState - 1);
+    index > 0 && setRawDrawingData(history[index - 1]);
   };
   const redo = () => {
     index < history.length - 1 && setIndex((prevState) => prevState + 1);
+    index < history.length - 1 && setRawDrawingData(history[index + 1]);
   };
 
   return [history[index], setState, undo, redo]; //returns the current state and the set state function
 };
 
-const Canvas = () => {
-  const [elements, setElements, undo, redo] = useHistory([]); // Setting initial history state to an empty array
+const Canvas = ({ setRawDrawingData }) => {
+  const [elements, setElements, undo, redo] = useHistory([], setRawDrawingData); // Setting initial history state to an empty array
   const [action, setAction] = useState("none");
   const [tool, setTool] = useState("line");
   const [selectedElement, setSelectedElement] = useState(null);
@@ -288,6 +290,7 @@ const Canvas = () => {
       }
     }
     setAction("none");
+    setRawDrawingData(elements);
     setSelectedElement(null);
   };
 
