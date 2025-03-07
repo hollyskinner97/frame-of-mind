@@ -12,7 +12,7 @@ export default async function fetchExistingComics(
   uid,
   setExistingComics,
   setLoading,
-  isSolo
+  isSolo,
 ) {
   setLoading(true);
   const userRef = doc(db, "users", uid);
@@ -29,7 +29,7 @@ export default async function fetchExistingComics(
     id: doc.id,
     ...doc.data(),
   }));
-  console.log(existingComics);
-  setExistingComics(existingComics);
+
+  await setExistingComics(existingComics);
   setLoading(false);
 }
