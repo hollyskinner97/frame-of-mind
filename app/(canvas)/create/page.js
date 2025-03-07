@@ -4,6 +4,7 @@ import Canvas from "../components/canvas";
 import TopBar from "@/app/components/TopBar";
 import Avatar from "@/app/components/Avatar";
 import { Box, Button } from "@mui/material";
+import addRawDrawingDataToDatabase from "./utils/addRawDrawingDataToDatabase";
 
 export default function Create() {
   const [rawDrawingData, setRawDrawingData] = useState([]);
@@ -16,8 +17,7 @@ export default function Create() {
               sx={{ ml: "auto", mr: 2 }}
               variant="contained"
               onClick={() => {
-                const rawDrawingDataString = JSON.stringify(rawDrawingData);
-                console.log(rawDrawingDataString);
+                addRawDrawingDataToDatabase(rawDrawingData);
               }}
             >
               Submit
