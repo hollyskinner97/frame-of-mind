@@ -4,12 +4,22 @@ import { useAuthState } from "react-firebase-hooks/auth";
 import Canvas from "../components/canvas";
 import TopBar from "@/app/components/TopBar";
 import Avatar from "@/app/components/Avatar";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography, Tooltip, TextField } from "@mui/material";
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Typography,
+  Tooltip,
+  TextField,
+} from "@mui/material";
 import { auth, db } from "@/lib/firebase";
 import { arrayUnion, doc, updateDoc } from "firebase/firestore";
 import deletePanel from "@/app/(standard)/(home)/setup/utils/deletePanel";
 import { useParams, useRouter } from "next/navigation";
-import { inspireMeGenerator } from "@/app/(standard)/(home)/setup/utils/inspireMeGenerator";
+import { inspireMeGenerator } from "@/app/(standard)/(home)/create/utils/inspireMeGenerator";
 import getData from "@/app/firestore/getData";
 
 export default function Create() {
@@ -33,7 +43,7 @@ export default function Create() {
 
   useEffect(() => {
     currentComicTheme();
-  }, [])
+  }, []);
 
   async function handleDiscard() {
     // Also show a dialog box saying it's been saved?
@@ -107,7 +117,9 @@ export default function Create() {
   };
 
   async function currentComicTheme() {
-    const comicTheme = (await getData("comics", "eh2ZYR7ZS9Uh6MMnd5YS")).result.data().comicTheme;
+    const comicTheme = (
+      await getData("comics", "eh2ZYR7ZS9Uh6MMnd5YS")
+    ).result.data().comicTheme;
     setComicTheme(comicTheme);
   }
 
@@ -150,19 +162,20 @@ export default function Create() {
         }
       />
 
-      <Typography
-        sx={{ m: "auto", mt: 2 }}>
-          {comicTheme}
-      </Typography>
+      <Typography sx={{ m: "auto", mt: 2 }}>{comicTheme}</Typography>
 
-      <Tooltip 
-        title="Need some inspiration or not sure where to start? An idea is only a click away!" arrow placement="right">
-        <Button 
-          variant="contained" 
+      <Tooltip
+        title="Need some inspiration or not sure where to start? An idea is only a click away!"
+        arrow
+        placement="right"
+      >
+        <Button
+          variant="contained"
           sx={{ m: "auto", mt: 2 }}
           onClick={() => {
-          setInspireMe(inspireMeGenerator());
-        }}>
+            setInspireMe(inspireMeGenerator());
+          }}
+        >
           Inspire Me
         </Button>
       </Tooltip>
@@ -184,18 +197,13 @@ export default function Create() {
         <Canvas setRawDrawingData={setRawDrawingData} />;
       </Box>
 
-      <Box
-        component="form"
-        sx={{ m: "auto", mb: 5 }}
-      >
+      <Box component="form" sx={{ m: "auto", mb: 5 }}>
         {panelCaption ? (
-          <Typography>
-            Panel Caption: {panelCaption}
-          </Typography>
+          <Typography>Panel Caption: {panelCaption}</Typography>
         ) : (
-          <TextField 
-            id="outlined-basic" 
-            label="Panel Caption" 
+          <TextField
+            id="outlined-basic"
+            label="Panel Caption"
             variant="outlined"
             required
             helperText="Add a description of what's happening in your panel"
@@ -203,10 +211,11 @@ export default function Create() {
           />
         )}
       </Box>
-      <Button 
-        variant="contained" 
+      <Button
+        variant="contained"
         sx={{ m: "auto", mt: 2 }}
-        onClick={() => setPanelCaption("")}>
+        onClick={() => setPanelCaption("")}
+      >
         Remove Panel Caption
       </Button>
       {console.log(panelCaption, "<--- panelCaption")}

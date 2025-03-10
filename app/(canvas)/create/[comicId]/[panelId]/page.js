@@ -12,6 +12,8 @@ import {
   DialogContent,
   DialogTitle,
   Typography,
+  Tooltip,
+  TextField,
 } from "@mui/material";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -24,6 +26,8 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import deletePanel from "@/app/(standard)/(home)/create/utils/deletePanel";
+import { inspireMeGenerator } from "@/app/(standard)/(home)/create/utils/inspireMeGenerator";
+import getData from "@/app/firestore/getData";
 import { useParams, useRouter } from "next/navigation";
 import { FloppyDiskBack, Trash } from "@phosphor-icons/react/dist/ssr";
 
@@ -33,6 +37,7 @@ export default function Create() {
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
   const [rawDrawingData, setRawDrawingData] = useState([]);
   const [panelCaption, setPanelCaption] = useState("");
+  const [inspireMe, setInspireMe] = useState("");
   const { comicId, panelId } = useParams();
   const [authUser] = useAuthState(auth);
   const router = useRouter();
@@ -216,7 +221,25 @@ export default function Create() {
             </>
           }
         />
+        <Tooltip
+          title="Need some inspiration or not sure where to start? An idea is only a click away!"
+          arrow
+          placement="right"
+        >
+          <Button
+            variant="contained"
+            sx={{ m: "auto", mt: 2 }}
+            onClick={() => {
+              setInspireMe(inspireMeGenerator());
+            }}
+          >
+            Inspire Me
+          </Button>
+        </Tooltip>
 
+        {inspireMe && (
+          <Typography sx={{ m: "auto", mt: 2 }}>Try... {inspireMe}</Typography>
+        )}
         <Box
           component={"main"}
           sx={{
@@ -232,6 +255,27 @@ export default function Create() {
             setPanelCaption={setPanelCaption}
             panelInfo={panelInfo}
           />
+          <Box component="form" sx={{ m: "auto", mb: 5 }}>
+            {panelCaption ? (
+              <Typography>Panel Caption: {panelCaption}</Typography>
+            ) : (
+              <TextField
+                id="outlined-basic"
+                label="Panel Caption"
+                variant="outlined"
+                required
+                helperText="Add a description of what's happening in your panel"
+                onBlur={(event) => setPanelCaption(event.target.value)}
+              />
+            )}
+          </Box>
+          <Button
+            variant="contained"
+            sx={{ m: "auto", mt: 2 }}
+            onClick={() => setPanelCaption("")}
+          >
+            Remove Panel Caption
+          </Button>
         </Box>
         <Box>
           <Dialog open={openCheckDialog} onClose={handleDialogClose}>
