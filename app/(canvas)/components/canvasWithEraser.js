@@ -99,7 +99,9 @@ const positionWithinElement = (x, y, element) => {
           onLine(point.x, point.y, nextPoint.x, nextPoint.y, x, y, 5) != null
         );
       });
-      return betweenAnyPoint ? "inside" : null;
+      case "text":
+        return x >= x1 && x <= x2 && y >= y1 && y <= y2 ? "inside" : null;
+   //   return betweenAnyPoint ? "inside" : null;
     default:
       throw new Error(`Invalid type: type not recognised: ${type}`);
   }
@@ -270,8 +272,8 @@ const drawElement = (roughCanvas, context, element) => {
       }
       break;
     case "text":
-      context.textBaseline = "top";
-      context.font = "48px serif";
+      context.textBaseline = "middle";
+      context.font = "24px sans-serif";
       context.fillStyle = element.color;
       context.fillText(element.text, element.x1, element.y1);
       break;
@@ -295,10 +297,12 @@ const Canvas = () => {
   const [isErasing, setIsErasing] = useState(false);
   const [elements, setElements, undo, redo] = useHistory([]); // Setting initial history state to an empty array
   const [action, setAction] = useState("none");
-  const [tool, setTool] = useState("line");
+  const [tool, setTool] = useState("text"); //changing from line to text
   const [selectedElement, setSelectedElement] = useState(null);
   const textAreaRef = useRef();
   const [color, setColor] = useState("#000000");
+  const [xOffset, setxOffset] = useState(0);
+  const [yOffset, setyOffset] = useState(0);
 
   //used LayoutEffect is called after component is fully rendered to ensure the DOM is updated before performing drawing actions
   useLayoutEffect(() => {
@@ -311,8 +315,11 @@ const Canvas = () => {
     const roughCanvas = rough.canvas(canvas);
 
     //iterates over the elements array and draws them on the canvas
-    elements.forEach((element) => drawElement(roughCanvas, context, element));
-  }, [elements]);
+    elements.forEach((element) => {
+      if (action === "writing" && selectedElement.id === element.id) return;
+      drawElement(roughCanvas, context, element);
+    });
+  }, [elements, action, selectedElement]);
 
   // using useEffect for the eraser
   useEffect(() => {
@@ -324,6 +331,8 @@ const Canvas = () => {
     const roughCanvas = rough.canvas(canvas);
     elements.forEach((element) => drawElement(roughCanvas, context, element));
   }, [elements]);
+
+
 
   // Enables user to use keyboard shortcuts to undo and redo actions
   useEffect(() => {
@@ -343,12 +352,16 @@ const Canvas = () => {
     };
   }, [undo, redo]);
 
-  useEffect(() => {
+   useEffect(() => {
     const textArea = textAreaRef.current;
-    if (action === "writing") {
-      textArea.focus();
+    if (action === "writing" && textArea) {
+      setTimeout(() => {
+        textArea.focus();
+      }, 50);
+      textArea.value = selectedElement.text;
     }
   }, [action, selectedElement]);
+
 
   //used to update the elemetents coordinates when one is moved or resized and then sets it back into state
   //id is the identifer of the element
@@ -377,8 +390,16 @@ const Canvas = () => {
           { x: x2, y: y2 },
         ];
         break;
-      case "text":
-        elementsCopy[id].text = options.text;
+        case "text":
+        const textWidth = document
+          .getElementById("canvas")
+          .getContext("2d")
+          .measureText(options.text).width;
+        const textHeight = 24;
+        elementsCopy[id] = {
+          ...createElement(id, x1, y1, x1 + textWidth, y1 + textHeight, type),
+          text: options.text,
+        };
         break;
       default:
         throw new Error(`Invalid type: type not recognised: ${type}`);
@@ -435,7 +456,16 @@ const Canvas = () => {
         const height = y2 - y1;
         const nexX1 = x - offsetX;
         const nexY1 = y - offsetY;
-        updateElement(id, nexX1, nexY1, nexX1 + width, nexY1 + height, type);
+        const options = type === "text" ? { text: selectedElement.text } : {};
+        updateElement(
+          id,
+          nexX1,
+          nexY1,
+          nexX1 + width,
+          nexY1 + height,
+          type,
+          options
+        );
       }
     } else if (action === "resizing") {
       const { id, type, position, ...coordinates } = selectedElement;
@@ -450,7 +480,14 @@ const Canvas = () => {
   };
   const handleMouseUp = () => {
     if (selectedElement) {
-      if (action === "writing") return;
+      if (
+        selectedElement.type === "text" &&
+        x - selectedElement.offsetX === selectedElement.x1 &&
+        y - selectedElement.offsetY === selectedElement.y1
+      ) {
+        setAction("writing");
+        return;
+      }
       const index = selectedElement.id;
       const { id, type } = elements[index];
       if (
@@ -462,13 +499,17 @@ const Canvas = () => {
         updateElement(id, x1, y1, x2, y2, type);
       }
     }
+    if (action === "writing") return;
     setAction("none");
     setSelectedElement(null);
   };
 
   const handleMouseDown = (event) => {
     // const { clientX, clientY } = event;
-    if (action === "writing") return;
+    if (action === "writing") {
+      handleBlur(event);
+      return;
+    }
     const rect = event.target.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
@@ -516,9 +557,10 @@ const Canvas = () => {
     setAction("none");
     setSelectedElement(null);
     updateElement(id, x1, y1, null, null, type, {
-      text: event.target.value,
+      text: textAreaRef.current.value,
       color: color,
     });
+    textAreaRef.current.value = "";
   };
   // set canvas size
 
@@ -532,9 +574,17 @@ const Canvas = () => {
   return (
     <>
       <ButtonGroup sx={{ mx: "auto", my: 2 }}>
-        <Button variant="outlined" onClick={undo}>
+      <Button
+          variant="outlined"
+          onClick={() => {
+            undo();
+          }}
+        >
+
           <ArrowArcLeft size={20} /> <Box sx={visuallyHidden}>Undo</Box>
         </Button>
+
+
         <Button variant="outlined" onClick={redo}>
           <ArrowArcRight size={20} /> <Box sx={visuallyHidden}>Redo</Box>
         </Button>
@@ -557,9 +607,17 @@ const Canvas = () => {
             ref={textAreaRef}
             onBlur={handleBlur}
             style={{
-              position: "fixed",
-              top: selectedElement.y1,
-              left: selectedElement.x1,
+              position: "absolute",
+              top: selectedElement.y1 + yOffset - 13,
+              left: selectedElement.x1 + xOffset - 6,
+              font: "24px sans-serif",
+              margin: 0,
+              padding: 0,
+              border: 0,
+              outline: 0,
+              resize: "auto",
+              overflow: "hidden",
+              background: "transparent",
             }}
           />
         ) : null}
