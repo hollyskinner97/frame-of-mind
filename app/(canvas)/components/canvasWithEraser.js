@@ -7,10 +7,10 @@ import {
   Cursor,
   Pencil,
   TextAa,
+  Eraser,
 } from "@phosphor-icons/react";
 import { LineSegment } from "@phosphor-icons/react/dist/ssr";
 
-import next from "next";
 import getStroke from "perfect-freehand";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import rough from "roughjs/bundled/rough.esm";
@@ -19,19 +19,34 @@ import rough from "roughjs/bundled/rough.esm";
 const generator = rough.generator();
 
 //function for creating squares or lines
-const createElement = (id, x1, y1, x2, y2, type) => {
+const createElement = (
+  id,
+  x1,
+  y1,
+  x2,
+  y2,
+  type,
+  color = "#000000",
+  isErasing = false
+) => {
   switch (type) {
     case "line":
     case "rectangle":
       const roughElement =
         type === "line"
-          ? generator.line(x1, y1, x2, y2)
-          : generator.rectangle(x1, y1, x2 - x1, y2 - y1);
-      return { id, x1, y1, x2, y2, type, roughElement };
+          ? generator.line(x1, y1, x2, y2, { stroke: color })
+          : generator.rectangle(x1, y1, x2 - x1, y2 - y1, { stroke: color });
+      return { id, x1, y1, x2, y2, type, roughElement, color };
     case "pencil":
-      return { id, type, points: [{ x: x1, y: y1 }] };
+      return {
+        id,
+        type,
+        points: [{ x: x1, y: y1 }],
+        color,
+        isErasing,
+      };
     case "text":
-      return { id, type, x1, y1, text: "" };
+      return { id, type, x1, y1, text: "", color };
 
     default: // If type isn't a specified case => throw err
       throw new Error(`Invalid type: type not recognised: ${type}`);
@@ -225,30 +240,65 @@ const drawElement = (roughCanvas, context, element) => {
       roughCanvas.draw(element.roughElement);
       break;
     case "pencil":
-      // Options params for the stroke (thickness etc.)
-      const stroke = getSvgPathFromStroke(
-        getStroke(element.points, { size: 4 })
-      );
-      context.fill(new Path2D(stroke)); // Keeping track of users draw path via SVG
+      context.beginPath();
+      context.moveTo(element.points[0].x, element.points[0].y);
+
+      if (element.isErasing) {
+        context.globalCompositeOperation = "destination-out";
+        context.lineWidth = 20;
+      } else {
+        context.globalCompositeOperation = "source-over";
+        context.lineWidth = 4;
+      }
+
+      context.lineCap = "round";
+      context.lineJoin = "round";
+
+      element.points.forEach((point) => {
+        context.lineTo(point.x, point.y);
+      });
+
+      context.stroke();
+      context.globalCompositeOperation = "source-over";
+
+      if (!element.isErasing) {
+        const stroke = getSvgPathFromStroke(
+          getStroke(element.points, { size: 4 })
+        );
+        context.fillStyle = element.color;
+        context.fill(new Path2D(stroke));
+      }
       break;
     case "text":
+      context.textBaseline = "top";
       context.font = "48px serif";
+      context.fillStyle = element.color;
       context.fillText(element.text, element.x1, element.y1);
       break;
+
     default:
       throw new Error(`Invalid type: type not recognised: ${element.type}`);
   }
 };
 
-// Check i
+const handleEraser = (context, x, y) => {
+  context.globalCompositeOperation = "destination-out";
+  context.beginPath();
+  context.arc(x, y, 20, 0, Math.PI * 2); // 20 is eraser size
+  context.fill();
+  context.globalCompositeOperation = "source-over";
+};
+
 const adjustmentRequired = (type) => ["line", "rectangle"].includes(type);
 
 const Canvas = () => {
+  const [isErasing, setIsErasing] = useState(false);
   const [elements, setElements, undo, redo] = useHistory([]); // Setting initial history state to an empty array
   const [action, setAction] = useState("none");
   const [tool, setTool] = useState("line");
   const [selectedElement, setSelectedElement] = useState(null);
   const textAreaRef = useRef();
+  const [color, setColor] = useState("#000000");
 
   //used LayoutEffect is called after component is fully rendered to ensure the DOM is updated before performing drawing actions
   useLayoutEffect(() => {
@@ -261,6 +311,17 @@ const Canvas = () => {
     const roughCanvas = rough.canvas(canvas);
 
     //iterates over the elements array and draws them on the canvas
+    elements.forEach((element) => drawElement(roughCanvas, context, element));
+  }, [elements]);
+
+  // using useEffect for the eraser
+  useEffect(() => {
+    const canvas = document.getElementById("canvas");
+    const context = canvas.getContext("2d");
+    context.fillStyle = "#FFFFFF";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    const roughCanvas = rough.canvas(canvas);
     elements.forEach((element) => drawElement(roughCanvas, context, element));
   }, [elements]);
 
@@ -299,7 +360,16 @@ const Canvas = () => {
     switch (type) {
       case "line":
       case "rectangle":
-        elementsCopy[id] = createElement(id, x1, y1, x2, y2, type);
+        elementsCopy[id] = createElement(
+          id,
+          x1,
+          y1,
+          x2,
+          y2,
+          type,
+          color,
+          isErasing
+        );
         break;
       case "pencil":
         elementsCopy[id].points = [
@@ -320,6 +390,17 @@ const Canvas = () => {
     const rect = event.target.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
+
+  //  if (isErasing && action === "moving") {
+  //  const canvas = document.getElementById("canvas");
+  //  const context = canvas.getContext("2d");
+  //  context.globalCompositeOperation = "destination-out";
+  //  context.beginPath();
+  //  context.arc(x, y, 20, 0, Math.PI * 2);
+  //  context.fill();
+  //  context.globalCompositeOperation = "source-over";
+  //  return; //Exit early if erasing
+  
     // const { clientX, clientY } = event;
     if (tool === "selection") {
       const element = getElementAtPosition(x, y, elements);
@@ -328,6 +409,9 @@ const Canvas = () => {
         : "default";
     }
     if (action === "drawing") {
+      const rect = event.target.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
       const index = elements.length - 1;
       const { x1, y1 } = elements[index];
       updateElement(index, x1, y1, x, y, tool);
@@ -388,6 +472,16 @@ const Canvas = () => {
     const rect = event.target.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
+
+    // if (isErasing) {
+      // Start erasing immediately
+      // const canvas = document.getElementById("canvas");
+      // const context = canvas.getContext("2d");
+      // handleEraser(context, x, y);
+      // setAction("moving"); // Allow continuous erasing
+      // return;
+    // }
+
     if (tool === "selection") {
       const element = getElementAtPosition(x, y, elements);
       if (element) {
@@ -409,7 +503,8 @@ const Canvas = () => {
       }
     } else {
       const id = elements.length;
-      const element = createElement(id, x, y, x, y, tool);
+      const element = createElement(id, x, y, x, y, tool, isErasing);
+      element.isErasing = isErasing;
       setElements((prevState) => [...prevState, element]);
       setSelectedElement(element);
       setAction(tool === "text" ? "writing" : "drawing");
@@ -420,12 +515,16 @@ const Canvas = () => {
     const { id, x1, y1, type } = selectedElement;
     setAction("none");
     setSelectedElement(null);
-    updateElement(id, x1, y1, null, null, type, { text: event.target.value });
+    updateElement(id, x1, y1, null, null, type, {
+      text: event.target.value,
+      color: color,
+    });
   };
   // set canvas size
 
   const refCanvasContainer = useRef(null);
   const [size, setSize] = useState(0);
+
   useEffect(() => {
     setSize(refCanvasContainer.current.clientHeight);
   }, [refCanvasContainer]);
@@ -471,6 +570,7 @@ const Canvas = () => {
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
+          style={{ backgroundColor: "#FFF" }}
         >
           Canvas
         </canvas>
@@ -509,6 +609,17 @@ const Canvas = () => {
           onClick={() => setTool("pencil")}
         >
           <Pencil size={20} /> <Box sx={visuallyHidden}> Pencil tool </Box>
+        </Button>
+
+        <Button
+          variant={isErasing ? "contained" : "outlined"} // Remove === "eraser"
+          onClick={() => {
+            setIsErasing(!isErasing);
+            setTool("pencil");
+          }}
+        >
+          <Eraser size={25} />
+          <Box sx={visuallyHidden}>Eraser</Box>
         </Button>
       </ButtonGroup>
     </>
