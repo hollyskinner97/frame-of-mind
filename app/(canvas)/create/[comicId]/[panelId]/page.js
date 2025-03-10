@@ -14,9 +14,18 @@ import {
   Typography,
 } from "@mui/material";
 import { auth, db } from "@/lib/firebase";
-import { arrayUnion, doc, getDoc, updateDoc } from "firebase/firestore";
+import {
+  arrayUnion,
+  doc,
+  getDoc,
+  increment,
+  serverTimestamp,
+  Timestamp,
+  updateDoc,
+} from "firebase/firestore";
 import deletePanel from "@/app/(standard)/(home)/create/utils/deletePanel";
 import { useParams, useRouter } from "next/navigation";
+import { FloppyDiskBack, Trash } from "@phosphor-icons/react/dist/ssr";
 
 export default function Create() {
   const [openCheckDialog, setOpenCheckDialog] = useState(false);
@@ -24,7 +33,6 @@ export default function Create() {
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
   const [rawDrawingData, setRawDrawingData] = useState([]);
   const [panelCaption, setPanelCaption] = useState("");
-  // Pass setPanelCaption into canvas too?
   const { comicId, panelId } = useParams();
   const [authUser] = useAuthState(auth);
   const router = useRouter();
@@ -34,6 +42,9 @@ export default function Create() {
   const panelRef = doc(db, "panels", panelId);
   const [validComic, setValidComic] = useState(null);
   const [validPanel, setValidPanel] = useState(null);
+  const [panelInfo, setPanelInfo] = useState(null);
+  const [comicInfo, setComicInfo] = useState(null);
+  const [userInfo, setUserInfo] = useState(null);
 
   useEffect(() => {
     if (authUser) {
@@ -48,14 +59,16 @@ export default function Create() {
       setValidComic(comicSnapshot._document ? true : false);
       const panelSnapshot = await getDoc(comicRef);
       setValidPanel(panelSnapshot._document ? true : false);
+      const userSnapshot = await getDoc(userRef);
+
+      setPanelInfo(panelSnapshot.data());
+      setComicInfo(comicSnapshot.data());
+      setUserInfo(userSnapshot.data());
     }
     checkIds();
   }, [comicId, panelId]);
 
-  // NEED TO SET UP NEXT.JS STRUCTURE SO COMIC ID AND PANEL ID GET PASSED THROUGH!
-
   async function handleDiscard() {
-    // Also show a dialog box saying it's been saved?
     if (!comicId || !panelId) return;
 
     await deletePanel(authUser.uid, comicId, panelId);
@@ -65,7 +78,6 @@ export default function Create() {
   }
 
   async function handleSave() {
-    // Also show a dialog box saying it's been saved
     try {
       if (!comicId || !panelId) return;
 
@@ -74,7 +86,7 @@ export default function Create() {
 
       await updateDoc(panelRef, {
         rawDrawingDataString,
-        // panelCaption update here too?
+        panelCaption,
       });
 
       setDialogAction("save");
@@ -94,7 +106,7 @@ export default function Create() {
       await updateDoc(panelRef, {
         rawDrawingDataString,
         isInProgress: false,
-        // panelCaption update here?
+        panelCaption,
       });
 
       await updateDoc(comicRef, {
@@ -105,10 +117,43 @@ export default function Create() {
       if (comicSnapshot.data().panels.length === 8) {
         await updateDoc(comicRef, {
           isCompleted: true,
+          completedAt: serverTimestamp(),
         });
         await updateDoc(userRef, {
           myComics: arrayUnion(comicRef),
         });
+
+        await updateDoc(userRef, {
+          lastContributedAt: serverTimestamp(),
+        });
+
+        const now = Timestamp.now().toMillis();
+        const yesterdayDate = now - 24 * 60 * 60 * 1000;
+        const today = new Date(now).getDate();
+        const yesterday = new Date(yesterdayDate).getDate();
+        const lastContributedMillis = userInfo.lastContributedAt.toMillis();
+        const currentDayStreak = userInfo.dayStreak;
+
+        if (
+          now - lastContributedMillis < 48 * 60 * 60 * 1000 &&
+          today === yesterday + 1
+        ) {
+          // Add 1 to dailyStreak if the next day
+          await updateDoc(userRef, {
+            dayStreak: increment(1),
+          });
+        } else {
+          // Otherwise, start new streak
+          await updateDoc(userRef, {
+            dayStreak: 1,
+          });
+        }
+
+        if (currentDayStreak === 6) {
+          await updateDoc(userRef, {
+            weekStreak: increment(1),
+          });
+        }
       }
 
       setDialogAction("submit");
@@ -132,6 +177,9 @@ export default function Create() {
         <TopBar
           components={
             <>
+              {/* <Typography variant="h2" sx={{ fontSize: "1.3rem", ml: "auto" }}>
+                Comic theme: {comicInfo.comicTheme}
+              </Typography> */}
               <Button
                 sx={{ ml: "auto", mr: 0.5 }}
                 variant="outlined"
@@ -140,7 +188,7 @@ export default function Create() {
                   setOpenCheckDialog(true);
                 }}
               >
-                Discard
+                <Trash />
               </Button>
               <Button
                 disabled={rawDrawingData.length === 0}
@@ -150,7 +198,7 @@ export default function Create() {
                   handleSave();
                 }}
               >
-                Save draft
+                <FloppyDiskBack />
               </Button>
 
               <Button
@@ -179,7 +227,11 @@ export default function Create() {
             maxHeight: "100%",
           }}
         >
-          <Canvas setRawDrawingData={setRawDrawingData} />;
+          <Canvas
+            setRawDrawingData={setRawDrawingData}
+            setPanelCaption={setPanelCaption}
+            panelInfo={panelInfo}
+          />
         </Box>
         <Box>
           <Dialog open={openCheckDialog} onClose={handleDialogClose}>
