@@ -44,7 +44,7 @@ const createElement = (id, x1, y1, x2, y2, type, color, fill = false) => {
         fill: fill || false,
       };
     case "text":
-      return { id, type, x1, y1, x2, y2, text: "", color };
+      return { id, type, x1, y1, x2, y2, text: "" };
 
     default: // If type isn't a specified case => throw err
       throw new Error(`Invalid type: type not recognised: ${type}`);
@@ -259,7 +259,6 @@ const drawElement = (roughCanvas, context, element) => {
     case "text":
       context.textBaseline = "middle";
       context.font = "24px sans-serif";
-      context.fillStyle = `#${element.color}`;
       context.fillText(element.text, element.x1, element.y1);
       break;
     default:
@@ -327,7 +326,6 @@ const Canvas = () => {
         if (event.shiftKey) {
           redo();
         } else {
-          // If ctrl + shift and any other key -> call undo func
           undo();
         }
       }
@@ -376,15 +374,7 @@ const Canvas = () => {
           .measureText(options.text).width;
         const textHeight = 24;
         elementsCopy[id] = {
-          ...createElement(
-            id,
-            x1,
-            y1,
-            x1 + textWidth,
-            y1 + textHeight,
-            type,
-            color
-          ),
+          ...createElement(id, x1, y1, x1 + textWidth, y1 + textHeight, type),
           text: options.text,
         };
         break;
@@ -429,9 +419,15 @@ const Canvas = () => {
         const nexX1 = x - offsetX;
         const nexY1 = y - offsetY;
         const options = type === "text" ? { text: selectedElement.text } : {};
-        updateElement(id, nexX1, nexY1, nexX1 + width, nexY1 + height, type, {
-          ...options,
-        });
+        updateElement(
+          id,
+          nexX1,
+          nexY1,
+          nexX1 + width,
+          nexY1 + height,
+          type,
+          options
+        );
       }
     } else if (action === "resizing") {
       const { id, type, position, ...coordinates } = selectedElement;
@@ -510,6 +506,17 @@ const Canvas = () => {
       }
       return;
     }
+
+    if (tool === "eraser") {
+      const element = getElementAtPosition(x, y, elements);
+      if (element) {
+        setElements((elements) =>
+          elements.filter((currentElement) => currentElement.id !== element.id)
+        );
+      }
+      return;
+    }
+
     if (action === "writing") {
       handleBlur(event);
       return;
