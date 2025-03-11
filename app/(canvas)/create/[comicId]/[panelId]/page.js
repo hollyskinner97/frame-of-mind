@@ -37,6 +37,8 @@ export default function Create() {
   const [openConfirmationDialog, setOpenConfirmationDialog] = useState(false);
   const [rawDrawingData, setRawDrawingData] = useState([]);
   const [panelCaption, setPanelCaption] = useState("");
+  const [editPanelCaption, setEditPanelCaption] = useState(false);
+  const [isPanelCaptionSubmitted, setIsPanelCaptionSubmitted] = useState(false);
   const [inspireMe, setInspireMe] = useState("");
   const { comicId, panelId } = useParams();
   const [authUser] = useAuthState(auth);
@@ -240,6 +242,7 @@ export default function Create() {
         {inspireMe && (
           <Typography sx={{ m: "auto", mt: 2 }}>Try... {inspireMe}</Typography>
         )}
+
         <Box
           component={"main"}
           sx={{
@@ -250,32 +253,92 @@ export default function Create() {
             maxHeight: "100%",
           }}
         >
-          <Canvas
-            setRawDrawingData={setRawDrawingData}
-            setPanelCaption={setPanelCaption}
-            panelInfo={panelInfo}
-          />
-          <Box component="form" sx={{ m: "auto", mb: 5 }}>
-            {panelCaption ? (
+        <Canvas
+          setRawDrawingData={setRawDrawingData}
+          setPanelCaption={setPanelCaption}
+          panelInfo={panelInfo}
+        />
+        <Box component="form" sx={{ m: "auto", mb: 5 }}>
+          {isPanelCaptionSubmitted ? (
+            <>
               <Typography>Panel Caption: {panelCaption}</Typography>
-            ) : (
-              <TextField
-                id="outlined-basic"
-                label="Panel Caption"
+              <Button
                 variant="outlined"
-                required
-                helperText="Add a description of what's happening in your panel"
-                onBlur={(event) => setPanelCaption(event.target.value)}
-              />
-            )}
-          </Box>
-          <Button
-            variant="contained"
-            sx={{ m: "auto", mt: 2 }}
-            onClick={() => setPanelCaption("")}
-          >
-            Remove Panel Caption
-          </Button>
+                sx={{ m: "auto", mt: 2, mr: 1 }}
+                onClick={() => {
+                  setIsPanelCaptionSubmitted(false);
+                  setEditPanelCaption(true);
+                }}
+                >
+                Edit Caption
+              </Button>
+              <Button
+                variant="contained"
+                sx={{ m: "auto", mt: 2, ml: 1}}
+                onClick={() => {
+                  setIsPanelCaptionSubmitted(false);
+                  setPanelCaption("");
+                }}
+              >
+                Remove Caption
+              </Button>
+            </>
+          ) : (
+            <>
+              {editPanelCaption ? (
+                <>
+                  <TextField
+                    id="outlined-basic"
+                    label="Panel Caption"
+                    variant="outlined"
+                    helperText="Add a description of what's happening in your panel"
+                    value={panelCaption}
+                    
+                    onClick={(event) => {
+                      
+                      setPanelCaption(event.target.value)
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    sx={{ m: 1.25}}
+                    onClick={() => {
+                      setIsPanelCaptionSubmitted(true);
+                      // setPanelCaption(temporaryPanelCaption);
+                    }}
+                    >
+                    Save Caption
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <TextField
+                      id="outlined-basic"
+                      label="Panel Caption"
+                      variant="outlined"
+                      helperText="Add a description of what's happening in your panel"
+                      onBlur={(event) => setPanelCaption(event.target.value)}
+                    />
+                    <Button
+                      variant="contained"
+                      sx={{ m: 1.25}}
+                      onClick={() => setIsPanelCaptionSubmitted(true)}
+                      >
+                      Save Caption
+                    </Button>
+                </>
+              )}
+            </>
+            )
+          }
+        </Box>
+        {/* <Button
+          variant="contained"
+          sx={{ m: "auto", mt: 2 }}
+          onClick={() => setPanelCaption("")}
+        >
+          Remove Panel Caption
+        </Button> */}
         </Box>
         <Box>
           <Dialog open={openCheckDialog} onClose={handleDialogClose}>
