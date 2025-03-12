@@ -48,7 +48,7 @@ export default function Community() {
             );
           case "completedAt":
           default:
-            return new Date(comicA.createdAt) - new Date(comicB.createdAt);
+            return comicB.createdAt.toDate().getTime() - comicA.createdAt.toDate().getTime();
         }
       });
 
