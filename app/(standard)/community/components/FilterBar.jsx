@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import { useState } from "react";
 import {
   AppBar,
@@ -10,15 +10,14 @@ import {
   ToggleButtonGroup,
 } from "@mui/material";
 
-export function FilterBar({ onFilterChange, userId }){
- 
+export function FilterBar({ onFilterChange, userId }) {
   const [filters, setFilters] = useState({
     sortBy: "completedAt",
     showMyComics: false,
     comicType: "all",
   });
 
-  const handleSortChange = (event) =>{
+  const handleSortChange = (event) => {
     const newFilters = {
       ...filters,
       sortBy: event.target.value,
@@ -53,7 +52,7 @@ export function FilterBar({ onFilterChange, userId }){
     <AppBar
       position="static"
       color="default"
-      sx={{ bgcolor: "background.paper" }}
+      sx={{ bgcolor: "light.main" }}
       variant="contained"
     >
       <Toolbar sx={{ gap: 2, display: "flex", flexWrap: "wrap" }}>
@@ -87,6 +86,9 @@ export function FilterBar({ onFilterChange, userId }){
           onChange={handleComicTypeToggle}
           aria-label="comic type"
         >
+          <ToggleButton value="all" aria-label="show all comics">
+            All
+          </ToggleButton>
           <ToggleButton value="solo" aria-label="show solo comics">
             Solo
           </ToggleButton>

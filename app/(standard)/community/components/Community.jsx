@@ -10,16 +10,14 @@ export default function Community() {
   const [comics, setComics] = useState([]);
 
   console.log(comics, "<======COMICS");
+  const [sortedComics, setSortedComics] = useState([]);
   const [filteredComics, setFilteredComics] = useState([]);
+  const [typeFilteredComics, setTypeFilteredComics] = useState([]); //solo/team filtering
   const [filters, setFilters] = useState({
     sortBy: "completedAt",
     showMyComics: false,
     comicType: "all",
   });
-
-  const handleFilterChange = (newFilters) => {
-    setFilters(newFilters);
-  };
 
   useEffect(() => {
     async function fetchData() {
@@ -48,13 +46,32 @@ export default function Community() {
             );
           case "completedAt":
           default:
-            return comicB.createdAt.toDate().getTime() - comicA.createdAt.toDate().getTime();
+            return (
+              comicB.createdAt.toDate().getTime() -
+              comicA.createdAt.toDate().getTime()
+            );
         }
       });
 
       setFilteredComics(sortedAndFilteredComics);
     }
   }, [comics, filters]);
+
+  useEffect(() => {
+    if (sortedComics.length > 0) {
+      const typeFiltered = sortedComics.filter((comic) => {
+        if (filters.comicType === "all") return true; //show all comics
+        if (filters.comicType === "solo") return comic.isSolo === true; //show only solo comics
+        if (filters.comicType === "team") return comic.isSolo === false; //show only team comics
+        return true;
+      });
+      setTypeFilteredComics(typeFiltered);
+    }
+  }, [sortedComics, filters.comicType]);
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+  };
 
   return (
     <>
@@ -68,7 +85,7 @@ export default function Community() {
         </Button>
       </ButtonGroup>
 
-      <FilterBar onFilterChange={handleFilterChange} />
+      <FilterBar onFilterChange={handleFilterChange} filters={filters} />
 
       <Typography variant="h3" sx={{ textAlign: "center" }}>
         Community
