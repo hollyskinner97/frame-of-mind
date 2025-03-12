@@ -6,6 +6,7 @@ import { useMediaQuery } from "react-responsive";
 import ComicGrid from "../components/ComicGrid";
 import fetchCommentsForComic from "../utils/fetchCommentsForComic";
 import getData from "@/app/firestore/getData";
+import { FilterBar } from "@/app/components/FilterBar";
 
 export default function ComicPage({ params }) {
   const comicId = use(params).id;
@@ -28,6 +29,16 @@ export default function ComicPage({ params }) {
   const [commentBody, setCommentBody] = useState("");
   const [isPosting, setIsPosting] = useState(false);
 
+  const [filters, setFilters] = useState({
+    sortBy: "completedAt",
+    showMyComics: false,
+    comicType: "all",
+  });
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+  };
+
   useEffect(() => {
     if (authUser) {
       setUserRef(doc(db, "users", authUser.uid));
@@ -35,14 +46,53 @@ export default function ComicPage({ params }) {
   }, [authUser]);
 
   useEffect(() => {
-    async function fetchComicsAndComments(comicId, comicRef) {
-      try {
-        setLoading(true);
+   async function fetchComicsAndComments(comicId, comicRef) {
+     try {
+       setLoading(true);
+       const comicInfo = (await getData("comics", comicId)).result.data();
+       setComicInfo(comicInfo);
 
-        const comicInfo = (await getData("comics", comicId)).result.data();
-        setComicInfo(comicInfo);
-
-        const comments = await fetchCommentsForComic(comicRef);
+       if (comicData) {
+         const filteredComicData = {
+           ...comicData,
+           ...(Array.isArray(comicData.comics) && {
+             comics: comicData.comics
+               .filter((comic) => {
+                 //filter by user's comics
+                 if (
+                   filters.showMyComics &&
+                   comic.createdBy !== authUser?.uid //using?(optional chaining) we won't get an error even when sth is undefined
+                 ) {
+                   return false;
+                 }
+                 //filter by comic type
+                 if (filters.comicType === "solo" && !comic.isSolo) {
+                   return false;
+                 }
+                 if (filters.comicType === "team" && comic.isSolo) {
+                   return false;
+                 }
+                 return true;
+               })
+               .sort((comicA, comicB) => {
+                 switch (filters.sortBy) {   //sortBy filtered results
+                   case "likes":
+                     return (comicB.likes || 0) - (comicA.likes || 0);
+                   case "theme":
+                     return (comicA.theme || "").localeCompare(comicB.theme || "");
+                   case "completedAt":
+                   default:
+                     return (
+                       new Date(comicB.completedAt || 0) -
+                       new Date(comicA.completedAt || 0)
+                     );
+                 }
+               }),
+           }),
+         };
+         setComicInfo(filteredComicData);
+       }
+       const comments = await fetchCommentsForComic(comicRef);
         setComments(comments);
 
         setLoading(false);
@@ -57,7 +107,7 @@ export default function ComicPage({ params }) {
     if (comicInfo.userRef === userRef) {
       setIsUsersComic(true);
     }
-  }, [comicId]);
+  }, [comicId, filters]);
 
   async function handlePrivacySetting() {
     setComicIsPublic(!comicIsPublic);
@@ -113,6 +163,7 @@ export default function ComicPage({ params }) {
 
   return (
     <>
+      <FilterBar onFilterChange={handleFilterChange} userId={authUser.uid} />
       <ComicGrid />
       <hr />
       <CommentsList />
