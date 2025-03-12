@@ -1,21 +1,60 @@
 "use client";
 import { useEffect, useState } from "react";
 import fetchCompletedComics from "../utils/fetchCompletedComics";
-import { doc } from "firebase/firestore";
+import fetchComicPanel from "../utils/fetchComicPanel";
 
-import { Button, ButtonGroup, Typography } from "@mui/material";
+import { Button, ButtonGroup, Typography, Grid2 } from "@mui/material";
+import { FilterBar } from "./FilterBar";
 
 export default function Community() {
   const [comics, setComics] = useState([]);
-  const [comicPanels, setComicPanels] = useState([]);
+
+  console.log(comics, "<======COMICS");
+  const [filteredComics, setFilteredComics] = useState([]);
+  const [filters, setFilters] = useState({
+    sortBy: "completedAt",
+    showMyComics: false,
+    comicType: "all",
+  });
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+  };
 
   useEffect(() => {
     async function fetchData() {
       const data = await fetchCompletedComics();
+
+      for (const comic of data) {
+        const firstPanelImage = await fetchComicPanel(comic.panels[0]);
+        comic.firstPanelImage = firstPanelImage;
+      }
+
       setComics(data);
     }
+
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (comics.length > 0) {
+      const sortedAndFilteredComics = [...comics].sort((comicA, comicB) => {
+        switch (filters.sortBy) {
+          case "likes":
+            return (comicB.comicLikes || 0) - (comicA.comicLikes || 0);
+          case "theme":
+            return (comicA.comicTheme || "").localeCompare(
+              comicB.comicTheme || ""
+            );
+          case "completedAt":
+          default:
+            return new Date(comicA.createdAt) - new Date(comicB.createdAt);
+        }
+      });
+
+      setFilteredComics(sortedAndFilteredComics);
+    }
+  }, [comics, filters]);
 
   return (
     <>
@@ -29,20 +68,33 @@ export default function Community() {
         </Button>
       </ButtonGroup>
 
-      <Typography variant="body1" sx={{ textAlign: "center" }}>
+      <FilterBar onFilterChange={handleFilterChange} />
+
+      <Typography variant="h3" sx={{ textAlign: "center" }}>
         Community
       </Typography>
-      <div>
-        {comics.map((comic) => (
+      <Typography variant="body1" sx={{ textAlign: "center" }}>
+        See what other users have created!
+      </Typography>
+
+      <Grid2
+        container
+        spacing={3}
+        sx={{
+          justifyContent: "center",
+        }}
+      >
+        {filteredComics.map((comic) => (
           <div key={comic.id}>
+            <img src={comic.firstPanelImage} alt="" />
             <Typography variant="body1">{comic.comicTheme}</Typography>
             <Typography variant="body2">
               Created: {comic.createdAt.toDate().toLocaleDateString()}
             </Typography>
-            {/* <img src="" alt="" /> */}
+            <Typography variant="body2">Likes: {comic.comicLikes}</Typography>
           </div>
         ))}
-      </div>
+      </Grid2>
     </>
   );
 }
